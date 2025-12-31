@@ -29,11 +29,96 @@ export interface GenerationProgress {
 export type GenerationProgressCallback = (progress: GenerationProgress) => void;
 
 /**
+ * Sanitize content by removing control characters and normalizing whitespace
+ */
+function sanitizeJsonContent(content: string): string {
+  return content
+    // Remove control characters except newlines and tabs
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    // Normalize line endings
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Remove BOM if present
+    .replace(/^\uFEFF/, '')
+    .trim();
+}
+
+/**
+ * Try to repair common JSON issues
+ */
+function attemptJsonRepair(json: string): string {
+  let repaired = json;
+
+  // Remove trailing commas before ] or }
+  repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+
+  // Replace smart quotes with regular quotes
+  repaired = repaired.replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"');
+  repaired = repaired.replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
+
+  // Replace en-dash and em-dash with regular dash
+  repaired = repaired.replace(/[\u2013\u2014]/g, '-');
+
+  // Remove any invisible characters that might be hiding
+  repaired = repaired.replace(/[\u200B\u200C\u200D\uFEFF\u00A0]/g, '');
+
+  return repaired;
+}
+
+/**
+ * Find balanced JSON object or array in content
+ */
+function findBalancedJson(content: string, startChar: '{' | '['): string | null {
+  const endChar = startChar === '{' ? '}' : ']';
+  const startIndex = content.indexOf(startChar);
+  if (startIndex === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIndex; i < content.length; i++) {
+    const char = content[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === startChar) {
+      depth++;
+    } else if (char === endChar) {
+      depth--;
+      if (depth === 0) {
+        return content.substring(startIndex, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Parse JSON from Claude's response, handling various formats
  */
 function parseJsonResponse<T>(content: string): T {
+  // First, sanitize the content
+  const sanitized = sanitizeJsonContent(content);
+
   // Strategy 1: Try to extract JSON from markdown code blocks (```json or ```)
-  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const codeBlockMatch = sanitized.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     try {
       return JSON.parse(codeBlockMatch[1].trim()) as T;
@@ -42,35 +127,67 @@ function parseJsonResponse<T>(content: string): T {
     }
   }
 
-  // Strategy 2: Try to find a JSON object directly in the content
-  // Look for content that starts with { and ends with }
-  const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
-  if (jsonObjectMatch) {
+  // Strategy 2: Try to find a balanced JSON object
+  const jsonObject = findBalancedJson(sanitized, '{');
+  if (jsonObject) {
+    // First try direct parse
     try {
-      return JSON.parse(jsonObjectMatch[0]) as T;
+      return JSON.parse(jsonObject) as T;
     } catch {
-      // Continue to other strategies
+      // Try with repair
+      try {
+        const repaired = attemptJsonRepair(jsonObject);
+        return JSON.parse(repaired) as T;
+      } catch (e) {
+        console.error('Found JSON object but failed to parse:', (e as Error).message);
+        // Continue to other strategies
+      }
     }
   }
 
-  // Strategy 3: Try to find a JSON array directly
-  const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
-  if (jsonArrayMatch) {
+  // Strategy 3: Try to find a balanced JSON array
+  const jsonArray = findBalancedJson(sanitized, '[');
+  if (jsonArray) {
     try {
-      return JSON.parse(jsonArrayMatch[0]) as T;
+      return JSON.parse(jsonArray) as T;
     } catch {
-      // Continue to next strategy
+      // Try with repair
+      try {
+        const repaired = attemptJsonRepair(jsonArray);
+        return JSON.parse(repaired) as T;
+      } catch {
+        // Continue to next strategy
+      }
     }
   }
 
-  // Strategy 4: Try parsing the trimmed content directly
+  // Strategy 4: Try parsing the sanitized content directly
   try {
-    return JSON.parse(content.trim()) as T;
+    return JSON.parse(sanitized) as T;
   } catch {
-    // Log the actual content for debugging
-    console.error('Failed to parse JSON response. Content preview:', content.substring(0, 500));
-    console.error('Full content length:', content.length);
-    throw new Error(`Failed to parse AI response as JSON. Response started with: "${content.substring(0, 100)}..."`);
+    // Try with repair
+    try {
+      const repaired = attemptJsonRepair(sanitized);
+      return JSON.parse(repaired) as T;
+    } catch (parseError) {
+      // Log detailed debugging information
+      console.error('=== JSON Parse Failure Debug ===');
+      console.error('Original content length:', content.length);
+      console.error('Sanitized content length:', sanitized.length);
+      console.error('Content preview (first 500 chars):', sanitized.substring(0, 500));
+      console.error('Content preview (last 200 chars):', sanitized.substring(Math.max(0, sanitized.length - 200)));
+      console.error('Parse error:', (parseError as Error).message);
+
+      // Try to identify the issue
+      if (sanitized.startsWith('{') && !sanitized.endsWith('}')) {
+        throw new Error(`JSON appears truncated - starts with { but doesn't end with }. Length: ${sanitized.length}`);
+      }
+      if (sanitized.startsWith('[') && !sanitized.endsWith(']')) {
+        throw new Error(`JSON array appears truncated - starts with [ but doesn't end with ]. Length: ${sanitized.length}`);
+      }
+
+      throw new Error(`Failed to parse AI response as JSON. Response started with: "${sanitized.substring(0, 100)}..."`);
+    }
   }
 }
 
@@ -88,7 +205,7 @@ async function callClaude<T>(
     try {
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: systemPrompt,
         messages: [
           {

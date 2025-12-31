@@ -20,19 +20,40 @@ function getBrandColors(brandData: CompleteBrandData) {
   return { primaryColor, secondaryColor };
 }
 
+// Helper to check if an image URL is valid for PDF rendering
+// @react-pdf/renderer only supports PNG, JPG, and base64 (not SVG)
+function isValidPdfImageUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  // Reject SVG images (including data URIs)
+  if (url.includes('image/svg+xml') || url.endsWith('.svg')) return false;
+  // Accept base64 PNG/JPG, or HTTP URLs ending in supported formats
+  if (url.startsWith('data:image/png') || url.startsWith('data:image/jpeg')) return true;
+  if (url.startsWith('http') && (url.match(/\.(png|jpg|jpeg)(\?|$)/i))) return true;
+  // For other http URLs, assume they might be valid
+  if (url.startsWith('http')) return true;
+  return false;
+}
+
+// Get a valid logo URL or null
+function getValidLogoUrl(logos: { url: string }[], index: number): string | null {
+  const logo = logos[index];
+  return logo && isValidPdfImageUrl(logo.url) ? logo.url : null;
+}
+
 // Cover Page Component
 function CoverPage({ brandData }: { brandData: CompleteBrandData }) {
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
   const brandNameParts = brandData.brandName.split(' ');
   const firstWord = brandNameParts[0];
   const restWords = brandNameParts.slice(1).join(' ');
+  const logoUrl = getValidLogoUrl(brandData.logos, 0);
 
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
       <View style={[baseStyles.coverPage, { backgroundColor: secondaryColor }]}>
-        {brandData.logos[0] && (
+        {logoUrl && (
           <Image
-            src={brandData.logos[0].url}
+            src={logoUrl}
             style={{ width: 150, height: 75, marginBottom: 40 }}
           />
         )}
@@ -66,6 +87,11 @@ function BrandStrategyPage({ brandData }: { brandData: CompleteBrandData }) {
   const { brandStrategy } = brandData;
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
 
+  // Defensive defaults
+  const positioning = brandStrategy?.positioning ?? { statement: '', targetAudience: '', marketCategory: '' };
+  const mission = brandStrategy?.mission ?? { statement: '', explanation: '' };
+  const vision = brandStrategy?.vision ?? { statement: '', timeframe: '' };
+
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
       <View style={[baseStyles.sectionHeader, { backgroundColor: secondaryColor }]}>
@@ -81,19 +107,23 @@ function BrandStrategyPage({ brandData }: { brandData: CompleteBrandData }) {
       {/* Positioning */}
       <View style={baseStyles.section}>
         <Text style={baseStyles.labelUppercase}>Brand Positioning</Text>
-        <View style={[baseStyles.quote, { borderLeftColor: primaryColor }]}>
-          <Text style={baseStyles.quoteText}>
-            "{brandStrategy.positioning.statement}"
-          </Text>
-        </View>
+        {positioning.statement ? (
+          <View style={[baseStyles.quote, { borderLeftColor: primaryColor }]}>
+            <Text style={baseStyles.quoteText}>
+              "{positioning.statement}"
+            </Text>
+          </View>
+        ) : (
+          <Text style={baseStyles.body}>Brand positioning statement not available.</Text>
+        )}
         <View style={baseStyles.row}>
           <View style={[baseStyles.col2, baseStyles.cardBordered]}>
             <Text style={baseStyles.labelUppercase}>Target Audience</Text>
-            <Text style={baseStyles.body}>{brandStrategy.positioning.targetAudience}</Text>
+            <Text style={baseStyles.body}>{positioning.targetAudience || 'Not specified'}</Text>
           </View>
           <View style={[baseStyles.col2, baseStyles.cardBordered]}>
             <Text style={baseStyles.labelUppercase}>Market Category</Text>
-            <Text style={baseStyles.body}>{brandStrategy.positioning.marketCategory}</Text>
+            <Text style={baseStyles.body}>{positioning.marketCategory || 'Not specified'}</Text>
           </View>
         </View>
       </View>
@@ -103,16 +133,16 @@ function BrandStrategyPage({ brandData }: { brandData: CompleteBrandData }) {
         <View style={[baseStyles.col2, baseStyles.card]}>
           <Text style={baseStyles.labelUppercase}>Mission</Text>
           <Text style={[baseStyles.body, { fontWeight: 'bold', marginBottom: 8 }]}>
-            {brandStrategy.mission.statement}
+            {mission.statement || 'Mission statement not available'}
           </Text>
-          <Text style={baseStyles.small}>{brandStrategy.mission.explanation}</Text>
+          <Text style={baseStyles.small}>{mission.explanation || ''}</Text>
         </View>
         <View style={[baseStyles.col2, baseStyles.card]}>
           <Text style={baseStyles.labelUppercase}>Vision</Text>
           <Text style={[baseStyles.body, { fontWeight: 'bold', marginBottom: 8 }]}>
-            {brandStrategy.vision.statement}
+            {vision.statement || 'Vision statement not available'}
           </Text>
-          <Text style={baseStyles.small}>Timeframe: {brandStrategy.vision.timeframe}</Text>
+          <Text style={baseStyles.small}>{vision.timeframe ? `Timeframe: ${vision.timeframe}` : ''}</Text>
         </View>
       </View>
 
@@ -129,6 +159,10 @@ function PersonalityPage({ brandData }: { brandData: CompleteBrandData }) {
   const { brandStrategy } = brandData;
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
 
+  // Defensive defaults
+  const archetype = brandStrategy?.archetype ?? { primary: '', secondary: '', description: '' };
+  const personality = brandStrategy?.personality ?? [];
+
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
       <View style={baseStyles.twoToneTitle}>
@@ -140,32 +174,38 @@ function PersonalityPage({ brandData }: { brandData: CompleteBrandData }) {
       <View style={[baseStyles.card, { marginBottom: 20 }]}>
         <View style={baseStyles.row}>
           <View style={[baseStyles.badgePrimary, { backgroundColor: primaryColor }]}>
-            <Text style={baseStyles.badgePrimaryText}>Primary: {brandStrategy.archetype.primary}</Text>
+            <Text style={baseStyles.badgePrimaryText}>Primary: {archetype.primary || 'Not specified'}</Text>
           </View>
           <View style={[baseStyles.badge, { marginLeft: 8 }]}>
-            <Text style={baseStyles.badgeText}>Secondary: {brandStrategy.archetype.secondary}</Text>
+            <Text style={baseStyles.badgeText}>Secondary: {archetype.secondary || 'Not specified'}</Text>
           </View>
         </View>
         <Text style={[baseStyles.body, { marginTop: 12 }]}>
-          {brandStrategy.archetype.description}
+          {archetype.description || 'Brand archetype description not available.'}
         </Text>
       </View>
 
       {/* Personality Traits */}
       <Text style={baseStyles.labelUppercase}>Personality Traits</Text>
-      {brandStrategy.personality.slice(0, 4).map((trait, index) => (
-        <View key={index} style={baseStyles.cardBordered}>
-          <Text style={[baseStyles.h4, { color: primaryColor }]}>{trait.trait}</Text>
-          <Text style={baseStyles.body}>{trait.description}</Text>
-          <View style={[baseStyles.row, { marginTop: 8 }]}>
-            {trait.behaviors.slice(0, 3).map((behavior, i) => (
-              <View key={i} style={[baseStyles.badge, { marginRight: 4 }]}>
-                <Text style={baseStyles.badgeText}>{behavior}</Text>
-              </View>
-            ))}
+      {personality.length > 0 ? (
+        personality.slice(0, 4).map((trait, index) => (
+          <View key={index} style={baseStyles.cardBordered}>
+            <Text style={[baseStyles.h4, { color: primaryColor }]}>{trait.trait}</Text>
+            <Text style={baseStyles.body}>{trait.description}</Text>
+            <View style={[baseStyles.row, { marginTop: 8 }]}>
+              {(trait.behaviors || []).slice(0, 3).map((behavior, i) => (
+                <View key={i} style={[baseStyles.badge, { marginRight: 4 }]}>
+                  <Text style={baseStyles.badgeText}>{behavior}</Text>
+                </View>
+              ))}
+            </View>
           </View>
+        ))
+      ) : (
+        <View style={baseStyles.cardBordered}>
+          <Text style={baseStyles.body}>Personality traits not yet defined.</Text>
         </View>
-      ))}
+      )}
 
       <View style={baseStyles.footer}>
         <Text style={baseStyles.pageNumber}>{brandData.brandName} Brand Guidelines</Text>
@@ -179,6 +219,10 @@ function PersonalityPage({ brandData }: { brandData: CompleteBrandData }) {
 function MessagingPage({ brandData }: { brandData: CompleteBrandData }) {
   const { messaging } = brandData;
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
+
+  // Defensive defaults
+  const pillars = messaging?.pillars ?? [];
+  const valuePropositions = messaging?.valuePropositions ?? [];
 
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
@@ -194,35 +238,47 @@ function MessagingPage({ brandData }: { brandData: CompleteBrandData }) {
 
       {/* Brand Pillars */}
       <Text style={baseStyles.labelUppercase}>Brand Pillars</Text>
-      <View style={[baseStyles.row, { marginBottom: 20 }]}>
-        {messaging.pillars.slice(0, 3).map((pillar, index) => (
-          <View key={index} style={[baseStyles.col3, baseStyles.cardBordered]}>
-            <View style={[baseStyles.badgePrimary, { backgroundColor: primaryColor, marginBottom: 12 }]}>
-              <Text style={baseStyles.badgePrimaryText}>{index + 1}</Text>
-            </View>
-            <Text style={baseStyles.h4}>{pillar.name}</Text>
-            <Text style={[baseStyles.small, { marginBottom: 8 }]}>{pillar.description}</Text>
-            {pillar.proofPoints.slice(0, 2).map((point, i) => (
-              <View key={i} style={baseStyles.listItem}>
-                <View style={[baseStyles.bullet, { backgroundColor: primaryColor }]} />
-                <Text style={baseStyles.small}>{point}</Text>
+      {pillars.length > 0 ? (
+        <View style={[baseStyles.row, { marginBottom: 20 }]}>
+          {pillars.slice(0, 3).map((pillar, index) => (
+            <View key={index} style={[baseStyles.col3, baseStyles.cardBordered]}>
+              <View style={[baseStyles.badgePrimary, { backgroundColor: primaryColor, marginBottom: 12 }]}>
+                <Text style={baseStyles.badgePrimaryText}>{index + 1}</Text>
               </View>
-            ))}
-          </View>
-        ))}
-      </View>
+              <Text style={baseStyles.h4}>{pillar.name}</Text>
+              <Text style={[baseStyles.small, { marginBottom: 8 }]}>{pillar.description}</Text>
+              {(pillar.proofPoints || []).slice(0, 2).map((point, i) => (
+                <View key={i} style={baseStyles.listItem}>
+                  <View style={[baseStyles.bullet, { backgroundColor: primaryColor }]} />
+                  <Text style={baseStyles.small}>{point}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={[baseStyles.cardBordered, { marginBottom: 20 }]}>
+          <Text style={baseStyles.body}>Brand pillars not yet defined.</Text>
+        </View>
+      )}
 
       {/* Value Propositions */}
       <Text style={baseStyles.labelUppercase}>Value Propositions</Text>
-      {messaging.valuePropositions.slice(0, 2).map((vp, index) => (
-        <View key={index} style={baseStyles.cardBordered}>
-          <View style={baseStyles.badge}>
-            <Text style={[baseStyles.badgeText, { color: primaryColor }]}>{vp.audience}</Text>
+      {valuePropositions.length > 0 ? (
+        valuePropositions.slice(0, 2).map((vp, index) => (
+          <View key={index} style={baseStyles.cardBordered}>
+            <View style={baseStyles.badge}>
+              <Text style={[baseStyles.badgeText, { color: primaryColor }]}>{vp.audience}</Text>
+            </View>
+            <Text style={[baseStyles.h4, { marginTop: 8, color: secondaryColor }]}>{vp.headline}</Text>
+            <Text style={baseStyles.body}>{vp.subheadline}</Text>
           </View>
-          <Text style={[baseStyles.h4, { marginTop: 8, color: secondaryColor }]}>{vp.headline}</Text>
-          <Text style={baseStyles.body}>{vp.subheadline}</Text>
+        ))
+      ) : (
+        <View style={baseStyles.cardBordered}>
+          <Text style={baseStyles.body}>Value propositions not yet defined.</Text>
         </View>
-      ))}
+      )}
 
       <View style={baseStyles.footer}>
         <Text style={baseStyles.pageNumber}>{brandData.brandName} Brand Guidelines</Text>
@@ -237,6 +293,9 @@ function VoiceTonePage({ brandData }: { brandData: CompleteBrandData }) {
   const { verbalExpression } = brandData;
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
 
+  // Defensive defaults
+  const voiceTone = verbalExpression?.voiceTone ?? [];
+
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
       <View style={[baseStyles.sectionHeader, { backgroundColor: secondaryColor }]}>
@@ -250,10 +309,11 @@ function VoiceTonePage({ brandData }: { brandData: CompleteBrandData }) {
       </View>
 
       {/* We Are / We Are Not */}
+      {voiceTone.length > 0 && (
       <View style={baseStyles.row}>
         <View style={[baseStyles.col2, baseStyles.weAreSection]}>
           <Text style={baseStyles.weAreTitle}>✓ We Are</Text>
-          {verbalExpression.voiceTone.slice(0, 3).map((item, index) => (
+          {voiceTone.slice(0, 3).map((item, index) => (
             <View key={index} style={baseStyles.weAreItem}>
               <Text style={[baseStyles.small, { fontWeight: 'bold', color: colors.secondary }]}>
                 {item.attribute}
@@ -264,7 +324,7 @@ function VoiceTonePage({ brandData }: { brandData: CompleteBrandData }) {
         </View>
         <View style={[baseStyles.col2, baseStyles.weAreNotSection]}>
           <Text style={baseStyles.weAreNotTitle}>✕ We Are Not</Text>
-          {verbalExpression.voiceTone.slice(0, 3).map((item, index) => (
+          {voiceTone.slice(0, 3).map((item, index) => (
             <View key={index} style={baseStyles.weAreItem}>
               <Text style={[baseStyles.small, { fontWeight: 'bold', color: colors.secondary }]}>
                 {item.attribute}
@@ -274,6 +334,7 @@ function VoiceTonePage({ brandData }: { brandData: CompleteBrandData }) {
           ))}
         </View>
       </View>
+      )}
 
       <View style={baseStyles.footer}>
         <Text style={baseStyles.pageNumber}>{brandData.brandName} Brand Guidelines</Text>
@@ -287,6 +348,10 @@ function VoiceTonePage({ brandData }: { brandData: CompleteBrandData }) {
 function ColorPalettePage({ brandData }: { brandData: CompleteBrandData }) {
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
 
+  // Defensive defaults
+  const brandColors = brandData.colors ?? [];
+  const colorPrinciples = brandData.colorGuidelines?.principles ?? [];
+
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
       <View style={[baseStyles.sectionHeader, { backgroundColor: secondaryColor }]}>
@@ -299,29 +364,35 @@ function ColorPalettePage({ brandData }: { brandData: CompleteBrandData }) {
         </Text>
       </View>
 
-      <View style={baseStyles.row}>
-        {brandData.colors.slice(0, 6).map((color, index) => (
-          <View key={index} style={{ width: '33.33%', marginBottom: 24, paddingRight: 12 }}>
-            <View style={[baseStyles.colorSwatch, { backgroundColor: color.hex }]} />
-            <View style={baseStyles.colorInfo}>
-              <Text style={baseStyles.colorName}>{color.name}</Text>
-              <Text style={baseStyles.colorValue}>{color.hex.toUpperCase()}</Text>
-              <Text style={baseStyles.colorValue}>
-                RGB: {color.rgb.r}, {color.rgb.g}, {color.rgb.b}
-              </Text>
-              <Text style={baseStyles.colorValue}>
-                CMYK: {color.cmyk.c}, {color.cmyk.m}, {color.cmyk.y}, {color.cmyk.k}
-              </Text>
+      {brandColors.length > 0 ? (
+        <View style={baseStyles.row}>
+          {brandColors.slice(0, 6).map((color, index) => (
+            <View key={index} style={{ width: '33.33%', marginBottom: 24, paddingRight: 12 }}>
+              <View style={[baseStyles.colorSwatch, { backgroundColor: color.hex }]} />
+              <View style={baseStyles.colorInfo}>
+                <Text style={baseStyles.colorName}>{color.name}</Text>
+                <Text style={baseStyles.colorValue}>{color.hex.toUpperCase()}</Text>
+                <Text style={baseStyles.colorValue}>
+                  RGB: {color.rgb?.r ?? 0}, {color.rgb?.g ?? 0}, {color.rgb?.b ?? 0}
+                </Text>
+                <Text style={baseStyles.colorValue}>
+                  CMYK: {color.cmyk?.c ?? 0}, {color.cmyk?.m ?? 0}, {color.cmyk?.y ?? 0}, {color.cmyk?.k ?? 0}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      ) : (
+        <View style={[baseStyles.cardBordered, { alignItems: 'center', padding: 40 }]}>
+          <Text style={baseStyles.body}>Brand colors not yet defined.</Text>
+        </View>
+      )}
 
       {/* Color Guidelines */}
-      {brandData.colorGuidelines.principles.length > 0 && (
+      {colorPrinciples.length > 0 && (
         <View style={[baseStyles.cardBordered, { marginTop: 16 }]}>
           <Text style={baseStyles.labelUppercase}>Color Principles</Text>
-          {brandData.colorGuidelines.principles.slice(0, 4).map((principle, index) => (
+          {colorPrinciples.slice(0, 4).map((principle, index) => (
             <View key={index} style={baseStyles.listItem}>
               <View style={[baseStyles.bullet, { backgroundColor: primaryColor }]} />
               <Text style={baseStyles.body}>{principle}</Text>
@@ -343,6 +414,10 @@ function TypographyPage({ brandData }: { brandData: CompleteBrandData }) {
   const { typographyGuidelines } = brandData;
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
 
+  // Defensive defaults
+  const primaryTypeface = typographyGuidelines?.primaryTypeface ?? { name: 'Not specified', characteristics: '', weights: [] };
+  const secondaryTypeface = typographyGuidelines?.secondaryTypeface ?? { name: 'Not specified', characteristics: '', weights: [] };
+
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
       <View style={baseStyles.twoToneTitle}>
@@ -353,28 +428,30 @@ function TypographyPage({ brandData }: { brandData: CompleteBrandData }) {
       {/* Primary Typeface */}
       <View style={[baseStyles.card, { backgroundColor: secondaryColor, marginBottom: 20 }]}>
         <Text style={[baseStyles.h1, { color: colors.white, marginBottom: 8 }]}>
-          {typographyGuidelines.primaryTypeface.name}
+          {primaryTypeface.name}
         </Text>
         <Text style={[baseStyles.labelUppercase, { color: 'rgba(255,255,255,0.6)' }]}>Primary Typeface</Text>
         <Text style={[baseStyles.body, { color: 'rgba(255,255,255,0.8)' }]}>
-          {typographyGuidelines.primaryTypeface.characteristics}
+          {primaryTypeface.characteristics || 'Typeface characteristics not specified.'}
         </Text>
-        <View style={[baseStyles.row, { marginTop: 12 }]}>
-          {typographyGuidelines.primaryTypeface.weights.map((weight, i) => (
-            <View key={i} style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginRight: 4 }}>
-              <Text style={{ fontSize: 9, color: colors.white }}>{weight}</Text>
-            </View>
-          ))}
-        </View>
+        {(primaryTypeface.weights || []).length > 0 && (
+          <View style={[baseStyles.row, { marginTop: 12 }]}>
+            {primaryTypeface.weights.map((weight, i) => (
+              <View key={i} style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginRight: 4 }}>
+                <Text style={{ fontSize: 9, color: colors.white }}>{weight}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Secondary Typeface */}
       <View style={[baseStyles.cardBordered, { marginBottom: 20 }]}>
         <Text style={[baseStyles.h2, { marginBottom: 8 }]}>
-          {typographyGuidelines.secondaryTypeface.name}
+          {secondaryTypeface.name}
         </Text>
         <Text style={baseStyles.labelUppercase}>Secondary Typeface</Text>
-        <Text style={baseStyles.body}>{typographyGuidelines.secondaryTypeface.characteristics}</Text>
+        <Text style={baseStyles.body}>{secondaryTypeface.characteristics || 'Typeface characteristics not specified.'}</Text>
       </View>
 
       {/* Type Scale Preview */}
@@ -488,6 +565,12 @@ function ButtonStylesPage({ brandData }: { brandData: CompleteBrandData }) {
 function LogoGuidelinesPage({ brandData }: { brandData: CompleteBrandData }) {
   const { logoGuidelines, logos } = brandData;
   const { primaryColor, secondaryColor } = getBrandColors(brandData);
+  const primaryLogoUrl = getValidLogoUrl(logos, 0);
+  const secondaryLogoUrl = getValidLogoUrl(logos, 1) || primaryLogoUrl;
+
+  // Defensive defaults
+  const donts = logoGuidelines?.donts ?? [];
+  const clearSpace = logoGuidelines?.clearSpace ?? { rule: 'Maintain clear space around the logo', minimumSize: '40px minimum height' };
 
   return (
     <Page size="A4" orientation="landscape" style={baseStyles.page}>
@@ -502,20 +585,23 @@ function LogoGuidelinesPage({ brandData }: { brandData: CompleteBrandData }) {
       </View>
 
       {/* Logo Display */}
-      {logos[0] && (
+      {primaryLogoUrl ? (
         <View style={baseStyles.row}>
           <View style={[baseStyles.col2, baseStyles.cardBordered, { alignItems: 'center' }]}>
-            <Image src={logos[0].url} style={{ width: 160, height: 70 }} />
+            <Image src={primaryLogoUrl} style={{ width: 160, height: 70 }} />
             <Text style={[baseStyles.small, { marginTop: 8 }]}>Primary Logo</Text>
           </View>
           <View style={[baseStyles.col2, baseStyles.card, { alignItems: 'center', backgroundColor: secondaryColor }]}>
-            {logos[1] ? (
-              <Image src={logos[1].url} style={{ width: 160, height: 70 }} />
-            ) : (
-              <Image src={logos[0].url} style={{ width: 160, height: 70 }} />
+            {secondaryLogoUrl && (
+              <Image src={secondaryLogoUrl} style={{ width: 160, height: 70 }} />
             )}
             <Text style={[baseStyles.small, { marginTop: 8, color: 'rgba(255,255,255,0.7)' }]}>Reversed Logo</Text>
           </View>
+        </View>
+      ) : (
+        <View style={[baseStyles.cardBordered, { alignItems: 'center', padding: 40 }]}>
+          <Text style={baseStyles.body}>Logo files not available in compatible format.</Text>
+          <Text style={baseStyles.small}>Upload PNG or JPG logo files for best results.</Text>
         </View>
       )}
 
@@ -523,18 +609,19 @@ function LogoGuidelinesPage({ brandData }: { brandData: CompleteBrandData }) {
       <View style={[baseStyles.section, { marginTop: 20 }]}>
         <Text style={baseStyles.labelUppercase}>Clear Space & Minimum Size</Text>
         <View style={baseStyles.cardBordered}>
-          <Text style={baseStyles.body}>{logoGuidelines.clearSpace.rule}</Text>
+          <Text style={baseStyles.body}>{clearSpace.rule}</Text>
           <Text style={[baseStyles.small, { marginTop: 8 }]}>
-            Minimum size: {logoGuidelines.clearSpace.minimumSize}
+            Minimum size: {clearSpace.minimumSize}
           </Text>
         </View>
       </View>
 
       {/* Logo Don'ts */}
+      {donts.length > 0 && (
       <View style={baseStyles.section}>
         <Text style={[baseStyles.labelUppercase, { color: colors.redText }]}>✕ Logo Don'ts</Text>
         <View style={baseStyles.row}>
-          {logoGuidelines.donts.slice(0, 6).map((dont, index) => (
+          {donts.slice(0, 6).map((dont, index) => (
             <View key={index} style={[baseStyles.col2, { marginBottom: 8 }]}>
               <View style={{ backgroundColor: colors.redBg, padding: 10, borderRadius: 8 }}>
                 <Text style={[baseStyles.small, { color: colors.redText }]}>✕ {dont}</Text>
@@ -543,6 +630,7 @@ function LogoGuidelinesPage({ brandData }: { brandData: CompleteBrandData }) {
           ))}
         </View>
       </View>
+      )}
 
       <View style={baseStyles.footer}>
         <Text style={baseStyles.pageNumber}>{brandData.brandName} Brand Guidelines</Text>

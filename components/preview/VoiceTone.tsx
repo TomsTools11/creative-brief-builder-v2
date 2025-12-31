@@ -15,6 +15,18 @@ export function VoiceTone({
   primaryColor = '#0066ff',
   secondaryColor = '#070d59',
 }: VoiceToneProps) {
+  // Defensive defaults for potentially undefined data
+  const voiceTone = verbalExpression?.voiceTone ?? [];
+  const toneSpectrum = verbalExpression?.toneSpectrum ?? [];
+  const writingStyle = verbalExpression?.writingStyle ?? {
+    sentenceLength: 'Not specified',
+    vocabulary: 'Not specified',
+    punctuation: 'Not specified',
+    formatting: 'Not specified',
+  };
+  const styleRules = verbalExpression?.styleRules ?? [];
+  const appositives = verbalExpression?.appositives ?? [];
+
   return (
     <section id="voice" className="scroll-mt-24 space-y-8">
       {/* Section Header */}
@@ -35,6 +47,7 @@ export function VoiceTone({
       </div>
 
       {/* We Are / We Are Not - Styled like the example PDF */}
+      {voiceTone.length > 0 && (
       <div className="grid gap-6 md:grid-cols-2">
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 to-white p-6 shadow-sm">
           <div className="relative z-10">
@@ -45,7 +58,7 @@ export function VoiceTone({
               <h3 className="text-lg font-bold text-green-800">We Are</h3>
             </div>
             <div className="space-y-4">
-              {verbalExpression.voiceTone.map((item, index) => (
+              {voiceTone.map((item, index) => (
                 <div key={index} className="rounded-lg border border-green-100 bg-white p-4">
                   <h4 className="mb-1 font-semibold text-[#070d59]">{item.attribute}</h4>
                   <p className="text-sm text-green-700">{item.doExample}</p>
@@ -64,7 +77,7 @@ export function VoiceTone({
               <h3 className="text-lg font-bold text-red-800">We Are Not</h3>
             </div>
             <div className="space-y-4">
-              {verbalExpression.voiceTone.map((item, index) => (
+              {voiceTone.map((item, index) => (
                 <div key={index} className="rounded-lg border border-red-100 bg-white p-4">
                   <h4 className="mb-1 font-semibold text-[#070d59]">{item.attribute}</h4>
                   <p className="text-sm text-red-700">{item.dontExample}</p>
@@ -74,8 +87,10 @@ export function VoiceTone({
           </div>
         </div>
       </div>
+      )}
 
       {/* Voice Attributes - Detailed */}
+      {voiceTone.length > 0 && (
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white p-8 shadow-sm">
         <HexagonPattern opacity={0.03} color={primaryColor} />
         <div className="relative z-10">
@@ -83,7 +98,7 @@ export function VoiceTone({
             Voice Attributes
           </h3>
           <div className="grid gap-4 md:grid-cols-2">
-            {verbalExpression.voiceTone.map((item, index) => (
+            {voiceTone.map((item, index) => (
               <div
                 key={index}
                 className="rounded-xl border border-gray-100 bg-white p-6"
@@ -115,8 +130,10 @@ export function VoiceTone({
           </div>
         </div>
       </div>
+      )}
 
       {/* Tone Spectrum */}
+      {toneSpectrum.length > 0 && (
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white p-8 shadow-sm">
         <HexagonPattern opacity={0.03} color={primaryColor} />
         <div className="relative z-10">
@@ -124,7 +141,7 @@ export function VoiceTone({
             Tone Spectrum
           </h3>
           <div className="space-y-8">
-            {verbalExpression.toneSpectrum.map((spectrum, index) => (
+            {toneSpectrum.map((spectrum, index) => (
               <div key={index} className="rounded-xl border border-gray-100 bg-white p-6">
                 <div className="mb-3 flex justify-between text-sm font-medium">
                   <span className="text-[#070d59]/60">
@@ -146,6 +163,7 @@ export function VoiceTone({
           </div>
         </div>
       </div>
+      )}
 
       {/* Writing Style */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white p-8 shadow-sm">
@@ -160,7 +178,7 @@ export function VoiceTone({
                 Sentence Length
               </h4>
               <p className="text-sm text-[#070d59]">
-                {verbalExpression.writingStyle.sentenceLength}
+                {writingStyle.sentenceLength}
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5">
@@ -168,7 +186,7 @@ export function VoiceTone({
                 Vocabulary
               </h4>
               <p className="text-sm text-[#070d59]">
-                {verbalExpression.writingStyle.vocabulary}
+                {writingStyle.vocabulary}
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5">
@@ -176,7 +194,7 @@ export function VoiceTone({
                 Punctuation
               </h4>
               <p className="text-sm text-[#070d59]">
-                {verbalExpression.writingStyle.punctuation}
+                {writingStyle.punctuation}
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5">
@@ -184,7 +202,7 @@ export function VoiceTone({
                 Formatting
               </h4>
               <p className="text-sm text-[#070d59]">
-                {verbalExpression.writingStyle.formatting}
+                {writingStyle.formatting}
               </p>
             </div>
           </div>
@@ -192,6 +210,7 @@ export function VoiceTone({
       </div>
 
       {/* Style Rules */}
+      {styleRules.length > 0 && (
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white p-8 shadow-sm">
         <HexagonPattern opacity={0.03} color={primaryColor} />
         <div className="relative z-10">
@@ -214,7 +233,7 @@ export function VoiceTone({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {verbalExpression.styleRules.map((rule, index) => (
+                {styleRules.map((rule, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-[#070d59]">
                       {rule.category}
@@ -232,9 +251,10 @@ export function VoiceTone({
           </div>
         </div>
       </div>
+      )}
 
       {/* Appositives */}
-      {verbalExpression.appositives.length > 0 && (
+      {appositives.length > 0 && (
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white p-8 shadow-sm">
           <HexagonPattern opacity={0.03} color={primaryColor} />
           <div className="relative z-10">
@@ -245,7 +265,7 @@ export function VoiceTone({
               Use these descriptive phrases when referencing the brand in various contexts.
             </p>
             <div className="space-y-3">
-              {verbalExpression.appositives.map((appositive, index) => (
+              {appositives.map((appositive, index) => (
                 <div
                   key={index}
                   className="flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-4"
